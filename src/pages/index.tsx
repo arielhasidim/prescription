@@ -357,27 +357,24 @@ const PrescriptionForm = () => {
   const clearSectionData = (section) => {
     if (section === 'patient') {
       setPatientInfo({ firstName: '', lastName: '', idNumber: '' });
-      setPatientHistory([]);
-      localStorage.removeItem('patientHistory');
-    } else {
-      setMedicationInfo({
-        name: '',
-        dosage: '',
-        units: '',
-        form: '',
-        route: '',
-        frequency: '',
-        instructions: ''
-      });
-      setCustomMedicationValues({
-        dosage: '',
-        units: '',
-        form: '',
-        route: ''
-      });
-      setMedicationHistory([]);
-      localStorage.removeItem('medicationHistory');
+      return;
     }
+
+    setMedicationInfo({
+      name: '',
+      dosage: '',
+      units: '',
+      form: '',
+      route: '',
+      frequency: '',
+      instructions: ''
+    });
+    setCustomMedicationValues({
+      dosage: '',
+      units: '',
+      form: '',
+      route: ''
+    });
   };
 
   const clearHistory = (section) => {
