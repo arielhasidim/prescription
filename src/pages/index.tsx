@@ -36,6 +36,9 @@ const PrescriptionForm = () => {
     clinic: ''
   });
 
+  const [patientHistory, setPatientHistory] = useState([]);
+  const [medicationHistory, setMedicationHistory] = useState([]);
+  const [historyDialog, setHistoryDialog] = useState(null);
   const [showExperimentalControls, setShowExperimentalControls] = useState(false);
 
   const [showPrintDialog, setShowPrintDialog] = useState(false);
@@ -60,11 +63,70 @@ const PrescriptionForm = () => {
     route: ''
   });
 
+  const getHistoryLabel = (section, entry) => {
+    if (section === 'patient') {
+      const fullName = [entry.firstName, entry.lastName].filter(Boolean).join(' ').trim();
+      return fullName || entry.idNumber || 'מטופל ללא פרטים';
+    }
+
+    const medicationName = entry.name || 'תרופה ללא שם';
+    const dosage = entry.dosage ? `${entry.dosage}` : '';
+    const units = entry.units ? entry.units.split(' - ')[0] : '';
+    const route = entry.route ? entry.route.split(' - ')[0] : '';
+    const form = entry.form ? entry.form.split(' - ')[0] : '';
+    return [medicationName, dosage, units, form, route].filter(Boolean).join(' • ');
+  };
+
+  const isHistoryEntryEmpty = (entry) => Object.values(entry).every((value) => !value || (typeof value === 'string' && !value.trim()));
+
+  const saveHistoryEntry = (section) => {
+    const entries = section === 'patient' ? patientHistory : medicationHistory;
+    const currentData = section === 'patient' ? patientInfo : medicationInfo;
+    const currentCustomData = section === 'patient' ? null : customMedicationValues;
+
+    if (isHistoryEntryEmpty(currentData)) {
+      return;
+    }
+
+    const savedEntry = {
+      id: `${section}-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+      label: getHistoryLabel(section, currentData),
+      data: section === 'patient' ? { ...currentData } : { ...currentData },
+      customValues: currentCustomData ? { ...currentCustomData } : undefined
+    };
+
+    const nextEntries = [savedEntry, ...entries.filter((entry) => JSON.stringify(entry.data) !== JSON.stringify(savedEntry.data))].slice(0, 10);
+
+    if (section === 'patient') {
+      setPatientHistory(nextEntries);
+    } else {
+      setMedicationHistory(nextEntries);
+    }
+  };
+
   // Load doctor info and API key from cache on component mount
   useEffect(() => {
     const cachedDoctorInfo = localStorage.getItem('doctorInfo');
     if (cachedDoctorInfo) {
       setDoctorInfo(JSON.parse(cachedDoctorInfo));
+    }
+
+    const savedPatientHistory = localStorage.getItem('patientHistory');
+    if (savedPatientHistory) {
+      try {
+        setPatientHistory(JSON.parse(savedPatientHistory));
+      } catch {
+        setPatientHistory([]);
+      }
+    }
+
+    const savedMedicationHistory = localStorage.getItem('medicationHistory');
+    if (savedMedicationHistory) {
+      try {
+        setMedicationHistory(JSON.parse(savedMedicationHistory));
+      } catch {
+        setMedicationHistory([]);
+      }
     }
     
     // Load saved API key if available
@@ -86,6 +148,14 @@ const PrescriptionForm = () => {
   useEffect(() => {
     localStorage.setItem('doctorInfo', JSON.stringify(doctorInfo));
   }, [doctorInfo]);
+
+  useEffect(() => {
+    localStorage.setItem('patientHistory', JSON.stringify(patientHistory));
+  }, [patientHistory]);
+
+  useEffect(() => {
+    localStorage.setItem('medicationHistory', JSON.stringify(medicationHistory));
+  }, [medicationHistory]);
 
   // Form dropdown options
   const unitOptions = ['mg', 'g', 'mcg', 'mL', 'cc', 'IU', 'UI', '%', 'ppm', 'spray', 'mEq', 'mmol', 'U'];
@@ -178,6 +248,9 @@ const PrescriptionForm = () => {
       return;
     }
     
+    saveHistoryEntry('patient');
+    saveHistoryEntry('medication');
+
     // Form is valid, show print dialog
     setShowPrintDialog(true);
   };
@@ -399,6 +472,32 @@ const PrescriptionForm = () => {
     const option = options.find(opt => opt === value);
     if (!option) return value;
     return value.split(' - ')[1];
+  };
+
+  const applyHistorySelection = (section, entry) => {
+    if (section === 'patient') {
+      setPatientInfo({ ...entry.data });
+    } else {
+      const medicationEntry = entry.data || {};
+      setMedicationInfo({ ...medicationEntry });
+      setCustomMedicationValues(entry.customValues || {
+        dosage: '',
+        units: '',
+        form: '',
+        route: ''
+      });
+    }
+    setHistoryDialog(null);
+  };
+
+  const clearHistory = (section) => {
+    if (section === 'patient') {
+      setPatientHistory([]);
+      localStorage.removeItem('patientHistory');
+    } else {
+      setMedicationHistory([]);
+      localStorage.removeItem('medicationHistory');
+    }
   };
 
   const handleMedicationValueChange = (field, value) => {
@@ -888,7 +987,30 @@ const PrescriptionForm = () => {
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Patient Information */}
         <div className="bg-white p-4 rounded-md shadow-sm">
-          <h2 className="text-lg font-semibold mb-3 text-blue-700">פרטי המטופל</h2>
+          <div className="flex items-center justify-between gap-2 mb-3">
+            <h2 className="text-lg font-semibold text-blue-700">פרטי המטופל</h2>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                aria-label="היסטוריית פרטי המטופל"
+                onClick={() => setHistoryDialog('patient')}
+                className="inline-flex items-center justify-center w-8 h-8 rounded-full border border-gray-300 bg-white text-gray-700 hover:bg-blue-50 hover:text-blue-700"
+                title="מילוי מהיסטוריה"
+              >
+                <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M9 7h9M9 12h9M9 17h9"/>
+                  <path d="M5 7h.01M5 12h.01M5 17h.01"/>
+                </svg>
+              </button>
+              <button
+                type="button"
+                onClick={() => clearHistory('patient')}
+                className="text-xs text-gray-600 hover:text-red-600"
+              >
+                נקה
+              </button>
+            </div>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700">
@@ -935,6 +1057,27 @@ const PrescriptionForm = () => {
         <div className="bg-white p-4 rounded-md shadow-sm">
           <div className="flex justify-between items-center mb-3">
             <h2 className="text-lg font-semibold text-blue-700">פרטי התרופה</h2>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                aria-label="היסטוריית פרטי התרופה"
+                onClick={() => setHistoryDialog('medication')}
+                className="inline-flex items-center justify-center w-8 h-8 rounded-full border border-gray-300 bg-white text-gray-700 hover:bg-blue-50 hover:text-blue-700"
+                title="מילוי מהיסטוריה"
+              >
+                <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M9 7h9M9 12h9M9 17h9"/>
+                  <path d="M5 7h.01M5 12h.01M5 17h.01"/>
+                </svg>
+              </button>
+              <button
+                type="button"
+                onClick={() => clearHistory('medication')}
+                className="text-xs text-gray-600 hover:text-red-600"
+              >
+                נקה
+              </button>
+            </div>
             {showExperimentalControls && (
               <div className="flex items-center space-x-2 rtl:space-x-reverse">
                 {!isConnected ? (
@@ -1298,6 +1441,48 @@ const PrescriptionForm = () => {
           </button>
         </div>
       </form>
+
+      {historyDialog && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-lg max-w-lg w-full max-h-[80vh] overflow-hidden">
+            <div className="flex items-center justify-between p-4 border-b">
+              <h2 className="text-lg font-bold">
+                {historyDialog === 'patient' ? 'מילוי פרטי מטופל קודמים' : 'מילוי פרטי תרופה קודמים'}
+              </h2>
+              <button
+                type="button"
+                onClick={() => setHistoryDialog(null)}
+                className="text-gray-500 hover:text-black"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="p-3 max-h-[60vh] overflow-y-auto space-y-2">
+              {((historyDialog === 'patient' ? patientHistory : medicationHistory) || []).length === 0 ? (
+                <p className="text-sm text-gray-500">אין פריטים שמורים עדיין.</p>
+              ) : (
+                (historyDialog === 'patient' ? patientHistory : medicationHistory).map((entry) => (
+                  <button
+                    key={entry.id}
+                    type="button"
+                    onClick={() => {
+                      applyHistorySelection(historyDialog, entry);
+                    }}
+                    className="w-full text-right p-3 rounded-md border border-gray-200 hover:border-blue-400 hover:bg-blue-50 transition-colors"
+                  >
+                    <div className="font-medium text-gray-800">{entry.label}</div>
+                    <div className="text-xs text-gray-500 mt-1">
+                      {historyDialog === 'patient'
+                        ? `${entry.data.firstName || ''} ${entry.data.lastName || ''} • ${entry.data.idNumber || ''}`.trim().replace(/\s+/g, ' ')
+                        : `${entry.data.name || ''} • ${entry.data.dosage || ''} ${entry.data.units ? entry.data.units.split(' - ')[0] : ''} • ${entry.data.route ? entry.data.route.split(' - ')[0] : ''}`.trim().replace(/\s+/g, ' ')}
+                    </div>
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* Print Dialog */}
       {showPrintDialog && (
