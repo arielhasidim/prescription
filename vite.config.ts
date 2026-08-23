@@ -4,9 +4,17 @@ import react from "@vitejs/plugin-react-swc";
 import Pages from "vite-plugin-pages";
 import getRepoName from "git-repo-name";
 
+const resolveRepoName = () => {
+  try {
+    return getRepoName.sync();
+  } catch {
+    return 'prescription';
+  }
+};
+
 export default defineConfig(({ command, mode }) => {
     const isGitHubPages = mode === 'github-pages'
-    const base = isGitHubPages ? `/${getRepoName.sync()}/` : '/'
+    const base = isGitHubPages ? `/${resolveRepoName()}/` : '/'
   
     return {
       plugins: [react(), Pages()],
