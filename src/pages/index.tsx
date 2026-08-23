@@ -36,6 +36,8 @@ const PrescriptionForm = () => {
     clinic: ''
   });
 
+  const [showExperimentalControls, setShowExperimentalControls] = useState(false);
+
   const [showPrintDialog, setShowPrintDialog] = useState(false);
   const [currentDate, setCurrentDate] = useState('');
   
@@ -51,6 +53,12 @@ const PrescriptionForm = () => {
   const [antibioticQuery, setAntibioticQuery] = useState('');
   const [isLoadingRecommendation, setIsLoadingRecommendation] = useState(false);
   const [antibioticRecommendation, setAntibioticRecommendation] = useState(null);
+  const [customMedicationValues, setCustomMedicationValues] = useState({
+    dosage: '',
+    units: '',
+    form: '',
+    route: ''
+  });
 
   // Load doctor info and API key from cache on component mount
   useEffect(() => {
@@ -158,12 +166,14 @@ const PrescriptionForm = () => {
     'חודשים - months'
   ];
 
+  const OTHER_OPTION = 'אחר';
+
   // Handle form submission
   const handleSubmit = (e) => {
     e.preventDefault();
     // Validate required fields
     if (!patientInfo.firstName || !patientInfo.lastName || !patientInfo.idNumber || 
-        !medicationInfo.name || !medicationInfo.route || !medicationInfo.frequency) {
+        !medicationInfo.name || !getMedicationFieldValue('route') || !medicationInfo.frequency) {
       alert('נא למלא את כל שדות החובה המסומנים בכוכבית (*)');
       return;
     }
@@ -336,11 +346,11 @@ const PrescriptionForm = () => {
             
             <p class="medication-name">${medicationInfo.name}</p>
             <p>
-              ${medicationInfo.dosage} ${medicationInfo.units ? medicationInfo.units.split(' - ')[0] : ''}
-              ${medicationInfo.form ? `(${medicationInfo.form.split(' - ')[0]})` : ''}
+              ${getMedicationFieldValue('dosage')} ${getMedicationFieldValue('units') ? getMedicationFieldValue('units').split(' - ')[0] : ''}
+              ${getMedicationFieldValue('form') ? `(${getMedicationFieldValue('form').split(' - ')[0]})` : ''}
             </p>
             <p>
-              דרך מתן: ${medicationInfo.route ? medicationInfo.route.split(' - ')[0] : ''}
+              דרך מתן: ${getMedicationFieldValue('route') ? getMedicationFieldValue('route').split(' - ')[0] : ''}
             </p>
             <p>
               תדירות: ${medicationInfo.frequency ? medicationInfo.frequency.split(' - ')[0] : ''}
@@ -389,6 +399,26 @@ const PrescriptionForm = () => {
     const option = options.find(opt => opt === value);
     if (!option) return value;
     return value.split(' - ')[1];
+  };
+
+  const handleMedicationValueChange = (field, value) => {
+    setMedicationInfo((prev) => ({ ...prev, [field]: value }));
+    if (value !== OTHER_OPTION) {
+      setCustomMedicationValues((prev) => ({ ...prev, [field]: '' }));
+    }
+  };
+
+  const handleCustomMedicationValueChange = (field, value) => {
+    setCustomMedicationValues((prev) => ({ ...prev, [field]: value }));
+    setMedicationInfo((prev) => ({ ...prev, [field]: OTHER_OPTION }));
+  };
+
+  const getMedicationFieldValue = (field) => {
+    const selectedValue = medicationInfo[field];
+    if (selectedValue === OTHER_OPTION) {
+      return customMedicationValues[field]?.trim() || '';
+    }
+    return selectedValue?.trim() || '';
   };
 
   // OpenAI API connection functions
@@ -905,31 +935,33 @@ const PrescriptionForm = () => {
         <div className="bg-white p-4 rounded-md shadow-sm">
           <div className="flex justify-between items-center mb-3">
             <h2 className="text-lg font-semibold text-blue-700">פרטי התרופה</h2>
-            <div className="flex items-center space-x-2 rtl:space-x-reverse">
-              {!isConnected ? (
+            {showExperimentalControls && (
+              <div className="flex items-center space-x-2 rtl:space-x-reverse">
+                {!isConnected ? (
+                  <button
+                    type="button"
+                    onClick={openApiKeyDialog}
+                    className="px-3 py-1 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 ml-2"
+                  >
+                    התחבר ל-OpenAI
+                  </button>
+                ) : (
+                  <span className="text-green-600 text-sm ml-2 flex items-center">
+                    <svg className="w-4 h-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                    </svg>
+                    מחובר ל-OpenAI
+                  </span>
+                )}
                 <button
                   type="button"
-                  onClick={openApiKeyDialog}
-                  className="px-3 py-1 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 ml-2"
+                  onClick={openAntibioticHelper}
+                  className="px-3 py-1 bg-green-600 text-white text-sm rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500"
                 >
-                  התחבר ל-OpenAI
+                  עזרה למרשם אנטיביוטי
                 </button>
-              ) : (
-                <span className="text-green-600 text-sm ml-2 flex items-center">
-                  <svg className="w-4 h-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                  </svg>
-                  מחובר ל-OpenAI
-                </span>
-              )}
-              <button
-                type="button"
-                onClick={openAntibioticHelper}
-                className="px-3 py-1 bg-green-600 text-white text-sm rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500"
-              >
-                עזרה למרשם אנטיביוטי
-              </button>
-            </div>
+              </div>
+            )}
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -965,8 +997,8 @@ const PrescriptionForm = () => {
                 <select
                   className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 appearance-none bg-white relative"
                   style={{ backgroundImage: "url('data:image/svg+xml;charset=UTF-8,%3csvg xmlns=%27http://www.w3.org/2000/svg%27 fill=%27none%27 viewBox=%270 0 20 20%27%3e%3cpath stroke=%27%236b7280%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27 stroke-width=%271.5%27 d=%27M6 8l4 4 4-4%27/%3e%3c/svg%3e')", backgroundRepeat: "no-repeat", backgroundPosition: "right 0.5rem center", backgroundSize: "1.5em 1.5em", paddingRight: "2.5rem" }}
-                  value={medicationInfo.units}
-                  onChange={(e) => setMedicationInfo({...medicationInfo, units: e.target.value})}
+                  value={medicationInfo.units === OTHER_OPTION ? OTHER_OPTION : medicationInfo.units}
+                  onChange={(e) => handleMedicationValueChange('units', e.target.value)}
                 >
                   <option value="">בחר יחידות</option>
                   {unitOptions.map((unit) => {
@@ -992,7 +1024,17 @@ const PrescriptionForm = () => {
                       <option key={unit} value={`${hebrewLabel} - ${unit}`}>{hebrewLabel} - {unit}</option>
                     );
                   })}
+                  <option value={OTHER_OPTION}>אחר</option>
                 </select>
+                {medicationInfo.units === OTHER_OPTION && (
+                  <input
+                    type="text"
+                    className="mt-2 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+                    value={customMedicationValues.units}
+                    onChange={(e) => handleCustomMedicationValueChange('units', e.target.value)}
+                    placeholder="הקלד יחידה מותאמת"
+                  />
+                )}
               </div>
             </div>
             
@@ -1003,14 +1045,24 @@ const PrescriptionForm = () => {
               <select
                 className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 appearance-none bg-white relative"
                 style={{ backgroundImage: "url('data:image/svg+xml;charset=UTF-8,%3csvg xmlns=%27http://www.w3.org/2000/svg%27 fill=%27none%27 viewBox=%270 0 20 20%27%3e%3cpath stroke=%27%236b7280%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27 stroke-width=%271.5%27 d=%27M6 8l4 4 4-4%27/%3e%3c/svg%3e')", backgroundRepeat: "no-repeat", backgroundPosition: "right 0.5rem center", backgroundSize: "1.5em 1.5em", paddingRight: "2.5rem" }}
-                value={medicationInfo.form}
-                onChange={(e) => setMedicationInfo({...medicationInfo, form: e.target.value})}
+                value={medicationInfo.form === OTHER_OPTION ? OTHER_OPTION : medicationInfo.form}
+                onChange={(e) => handleMedicationValueChange('form', e.target.value)}
               >
                 <option value="">בחר צורה</option>
                 {formOptions.map((form) => (
                   <option key={form} value={form}>{form}</option>
                 ))}
+                <option value={OTHER_OPTION}>אחר</option>
               </select>
+              {medicationInfo.form === OTHER_OPTION && (
+                <input
+                  type="text"
+                  className="mt-2 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+                  value={customMedicationValues.form}
+                  onChange={(e) => handleCustomMedicationValueChange('form', e.target.value)}
+                  placeholder="הקלד צורת תרופה מותאמת"
+                />
+              )}
             </div>
             
             <div>
@@ -1020,15 +1072,25 @@ const PrescriptionForm = () => {
               <select
                 className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 appearance-none bg-white relative"
                 style={{ backgroundImage: "url('data:image/svg+xml;charset=UTF-8,%3csvg xmlns=%27http://www.w3.org/2000/svg%27 fill=%27none%27 viewBox=%270 0 20 20%27%3e%3cpath stroke=%27%236b7280%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27 stroke-width=%271.5%27 d=%27M6 8l4 4 4-4%27/%3e%3c/svg%3e')", backgroundRepeat: "no-repeat", backgroundPosition: "right 0.5rem center", backgroundSize: "1.5em 1.5em", paddingRight: "2.5rem" }}
-                value={medicationInfo.route}
-                onChange={(e) => setMedicationInfo({...medicationInfo, route: e.target.value})}
+                value={medicationInfo.route === OTHER_OPTION ? OTHER_OPTION : medicationInfo.route}
+                onChange={(e) => handleMedicationValueChange('route', e.target.value)}
                 required
               >
                 <option value="">בחר דרך מתן</option>
                 {routeOptions.map((route) => (
                   <option key={route} value={route}>{route}</option>
                 ))}
+                <option value={OTHER_OPTION}>אחר</option>
               </select>
+              {medicationInfo.route === OTHER_OPTION && (
+                <input
+                  type="text"
+                  className="mt-2 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+                  value={customMedicationValues.route}
+                  onChange={(e) => handleCustomMedicationValueChange('route', e.target.value)}
+                  placeholder="הקלד דרך מתן מותאמת"
+                />
+              )}
             </div>
             
             <div>
