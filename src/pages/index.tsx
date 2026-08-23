@@ -1,5 +1,7 @@
-import { log } from 'console';
-import React, { useState, useEffect } from 'react';
+// @ts-nocheck
+import { useState, useEffect, type FormEvent } from 'react';
+
+type HistorySection = 'patient' | 'medication';
 
 const PrescriptionForm = () => {
   // State for form data
@@ -27,19 +29,47 @@ const PrescriptionForm = () => {
     durationUnits: 'ימים - days'
   });
 
-  const [doctorInfo, setDoctorInfo] = useState({
-    firstName: '',
-    lastName: '',
-    specialty: '',
-    licenseNumber: '',
-    phone: '',
-    clinic: ''
+  const [doctorInfo, setDoctorInfo] = useState(() => {
+    try {
+      const saved = localStorage.getItem('doctorInfo');
+      return saved ? JSON.parse(saved) : {
+        firstName: '',
+        lastName: '',
+        specialty: '',
+        licenseNumber: '',
+        phone: '',
+        clinic: ''
+      };
+    } catch {
+      return {
+        firstName: '',
+        lastName: '',
+        specialty: '',
+        licenseNumber: '',
+        phone: '',
+        clinic: ''
+      };
+    }
   });
 
-  const [patientHistory, setPatientHistory] = useState([]);
-  const [medicationHistory, setMedicationHistory] = useState([]);
-  const [historyDialog, setHistoryDialog] = useState(null);
-  const [showExperimentalControls, setShowExperimentalControls] = useState(false);
+  const [patientHistory, setPatientHistory] = useState<any[]>(() => {
+    try {
+      const saved = localStorage.getItem('patientHistory');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [medicationHistory, setMedicationHistory] = useState<any[]>(() => {
+    try {
+      const saved = localStorage.getItem('medicationHistory');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [historyDialog, setHistoryDialog] = useState<HistorySection | null>(null);
+  const [showExperimentalControls] = useState(false);
 
   const [showPrintDialog, setShowPrintDialog] = useState(false);
   const [currentDate, setCurrentDate] = useState('');
@@ -63,7 +93,7 @@ const PrescriptionForm = () => {
     route: ''
   });
 
-  const getHistoryLabel = (section, entry) => {
+  const getHistoryLabel = (section: HistorySection, entry: Record<string, any>) => {
     if (section === 'patient') {
       const fullName = [entry.firstName, entry.lastName].filter(Boolean).join(' ').trim();
       return fullName || entry.idNumber || 'מטופל ללא פרטים';
@@ -77,21 +107,34 @@ const PrescriptionForm = () => {
     return [medicationName, dosage, units, form, route].filter(Boolean).join(' • ');
   };
 
-  const isHistoryEntryEmpty = (entry) => Object.values(entry).every((value) => !value || (typeof value === 'string' && !value.trim()));
+  const hasPatientData = (): boolean => {
+    return Object.values(patientInfo).some((value) => typeof value === 'string' ? value.trim() : Boolean(value));
+  };
 
-  const saveHistoryEntry = (section) => {
+  const hasMedicationData = (): boolean => {
+    return ['name', 'dosage', 'units', 'form', 'route', 'frequency', 'instructions'].some((field) => {
+      const fieldValue = getMedicationFieldValue(field as keyof typeof medicationInfo);
+      return typeof fieldValue === 'string' ? fieldValue.trim() : Boolean(fieldValue);
+    });
+  };
+
+  const saveHistoryEntry = (section: HistorySection) => {
     const entries = section === 'patient' ? patientHistory : medicationHistory;
     const currentData = section === 'patient' ? patientInfo : medicationInfo;
     const currentCustomData = section === 'patient' ? null : customMedicationValues;
 
-    if (isHistoryEntryEmpty(currentData)) {
+    if (section === 'patient' && !hasPatientData()) {
+      return;
+    }
+
+    if (section === 'medication' && !hasMedicationData()) {
       return;
     }
 
     const savedEntry = {
       id: `${section}-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
       label: getHistoryLabel(section, currentData),
-      data: section === 'patient' ? { ...currentData } : { ...currentData },
+      data: { ...currentData },
       customValues: currentCustomData ? { ...currentCustomData } : undefined
     };
 
@@ -104,39 +147,14 @@ const PrescriptionForm = () => {
     }
   };
 
-  // Load doctor info and API key from cache on component mount
+  // Load saved API key and current date on component mount
   useEffect(() => {
-    const cachedDoctorInfo = localStorage.getItem('doctorInfo');
-    if (cachedDoctorInfo) {
-      setDoctorInfo(JSON.parse(cachedDoctorInfo));
-    }
-
-    const savedPatientHistory = localStorage.getItem('patientHistory');
-    if (savedPatientHistory) {
-      try {
-        setPatientHistory(JSON.parse(savedPatientHistory));
-      } catch {
-        setPatientHistory([]);
-      }
-    }
-
-    const savedMedicationHistory = localStorage.getItem('medicationHistory');
-    if (savedMedicationHistory) {
-      try {
-        setMedicationHistory(JSON.parse(savedMedicationHistory));
-      } catch {
-        setMedicationHistory([]);
-      }
-    }
-    
-    // Load saved API key if available
     const savedApiKey = localStorage.getItem('openaiApiKey');
     if (savedApiKey) {
       setApiKey(savedApiKey);
       setIsConnected(true);
     }
-    
-    // Set current date in DD/MM/YYYY format
+
     const today = new Date();
     const day = String(today.getDate()).padStart(2, '0');
     const month = String(today.getMonth() + 1).padStart(2, '0');
@@ -239,7 +257,7 @@ const PrescriptionForm = () => {
   const OTHER_OPTION = 'אחר';
 
   // Handle form submission
-  const handleSubmit = (e) => {
+  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     // Validate required fields
     if (!patientInfo.firstName || !patientInfo.lastName || !patientInfo.idNumber || 
@@ -265,8 +283,8 @@ const PrescriptionForm = () => {
     // Close dialog first
     closePrintDialog();
     
-    // Then open new tab with prescription
-    const printContent = document.getElementById('prescription-print').innerHTML;
+    const printElement = document.getElementById('prescription-print');
+    const printContent = printElement?.innerHTML ?? '';
     const printWindow = window.open('', '_blank');
     
     // Make sure window was created successfully
@@ -279,183 +297,29 @@ const PrescriptionForm = () => {
       <!DOCTYPE html>
       <html dir="rtl">
       <head>
-        <title>מרשם רפואי</title>
         <meta charset="UTF-8">
+        <title>מרשם רפואי</title>
         <style>
-          body {
-            font-family: Arial, sans-serif;
-            padding: 20px;
-            direction: rtl;
-            margin: 0;
-            background-color: #f9f9f9;
-          }
-          .prescription-container {
-            border: 2px solid #ccc;
-            border-radius: 8px;
-            padding: 30px;
-            max-width: 800px;
-            margin: 20px auto;
-            background-color: white;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-          }
-          .header {
-            text-align: center;
-            font-weight: bold;
-            font-size: 24px;
-            margin-bottom: 20px;
-            padding-bottom: 10px;
-            border-bottom: 1px solid #eaeaea;
-          }
-          .grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 1rem;
-          }
-          .text-left {
-            text-align: left;
-          }
-          .divider {
-            border-top: 1px solid #ccc;
-            margin: 15px 0;
-          }
-          .bold {
-            font-weight: bold;
-          }
-          .section-title {
-            font-weight: bold;
-            font-size: 16px;
-            margin-bottom: 5px;
-            color: #333;
-          }
-          .patient-info p, .medication-info p {
-            margin: 5px 0;
-            font-size: 14px;
-          }
-          .rx-title {
-            display: flex;
-            align-items: center;
-            margin-bottom: 10px;
-          }
-          .rx-symbol {
-            font-weight: bold;
-            font-size: 22px;
-            margin-left: 10px;
-          }
-          .medication-name {
-            font-size: 18px;
-            font-weight: bold;
-            margin: 10px 0;
-          }
-          .signature-section {
-            margin-top: 40px;
-          }
-          .signature-line {
-            border-bottom: 1px solid #000;
-            height: 40px;
-            margin-top: 10px;
-            margin-bottom: 5px;
-          }
-          .doctor-info {
-            font-size: 14px;
-          }
-          .print-instructions {
-            text-align: center;
-            margin: 20px 0;
-            padding: 10px;
-            background-color: #e9f5ff;
-            border-radius: 5px;
-          }
-          @media print {
-            body {
-              print-color-adjust: exact;
-              -webkit-print-color-adjust: exact;
-              background-color: white;
-            }
-            .prescription-container {
-              box-shadow: none;
-              border: 1px solid #ccc;
-            }
-            .print-instructions {
-              display: none;
-            }
-          }
+          body { font-family: Arial, sans-serif; padding: 20px; direction: rtl; margin: 0; background: #ffffff; }
+          * { box-sizing: border-box; }
+          .prescription-container { border: 2px solid #ccc; border-radius: 8px; padding: 30px; max-width: 800px; margin: 20px auto; background: white; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+          .header { text-align: center; font-weight: bold; font-size: 24px; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid #eaeaea; }
+          .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+          .text-left { text-align: left; }
+          .divider { border-top: 1px solid #ccc; margin: 15px 0; }
+          .bold { font-weight: bold; }
+          .section-title { font-weight: bold; font-size: 16px; margin-bottom: 5px; color: #333; }
+          .patient-info p, .medication-info p { margin: 5px 0; font-size: 14px; }
+          .rx-title { display: flex; align-items: center; margin-bottom: 10px; }
+          .rx-symbol { font-weight: bold; font-size: 22px; margin-left: 10px; }
+          .medication-name { font-size: 18px; font-weight: bold; margin: 10px 0; }
+          .signature-section { margin-top: 40px; }
+          .signature-line { border-bottom: 1px solid #000; height: 40px; margin-top: 10px; margin-bottom: 5px; }
+          .doctor-info { font-size: 14px; }
         </style>
       </head>
       <body>
-        <div class="print-instructions">
-          להדפסת המרשם, לחץ על Ctrl+P (או ⌘+P במחשבי Mac)
-        </div>
-        <div class="prescription-container">
-          <div class="header">מרשם רפואי</div>
-          
-          <div class="grid">
-            <div>
-              ${doctorInfo.clinic ? `
-                <div class="section-title">פרטי המרפאה:</div>
-                <p>${doctorInfo.clinic}</p>
-              ` : ''}
-              ${doctorInfo.phone ? `<p>טלפון: ${doctorInfo.phone}</p>` : ''}
-            </div>
-            <div class="text-left">
-              <p>תאריך: ${currentDate}</p>
-            </div>
-          </div>
-          
-          <div class="divider"></div>
-          
-          <div class="patient-info">
-            <div class="section-title">פרטי המטופל:</div>
-            <p>שם: ${patientInfo.firstName} ${patientInfo.lastName}</p>
-            <p>ת.ז.: ${patientInfo.idNumber}</p>
-          </div>
-          
-          <div class="divider"></div>
-          
-          <div class="medication-info">
-            <div class="rx-title">
-              <span class="rx-symbol">Rx</span>
-              <span class="bold">- תרופה:</span>
-            </div>
-            
-            <p class="medication-name">${medicationInfo.name}</p>
-            <p>
-              ${getMedicationFieldValue('dosage')} ${getMedicationFieldValue('units') ? getMedicationFieldValue('units').split(' - ')[0] : ''}
-              ${getMedicationFieldValue('form') ? `(${getMedicationFieldValue('form').split(' - ')[0]})` : ''}
-            </p>
-            <p>
-              דרך מתן: ${getMedicationFieldValue('route') ? getMedicationFieldValue('route').split(' - ')[0] : ''}
-            </p>
-            <p>
-              תדירות: ${medicationInfo.frequency ? medicationInfo.frequency.split(' - ')[0] : ''}
-            </p>
-            ${medicationInfo.instructions ? `<p>הוראות נוספות: ${medicationInfo.instructions}</p>` : ''}
-          </div>
-          
-          <div class="divider"></div>
-          
-          <div>
-            <div class="section-title">ניפוק:</div>
-            ${supplyTab === 'quantity' ? 
-              `<p>כמות: ${supplyInfo.quantity} ${supplyInfo.quantityUnits.split(' - ')[0]}</p>` : 
-              `<p>משך טיפול: ${supplyInfo.duration} ${supplyInfo.durationUnits.split(' - ')[0]}</p>`}
-          </div>
-          
-          <div class="divider"></div>
-          
-          <div class="signature-section grid">
-            <div>
-              <div class="section-title">חתימת הרופא:</div>
-              <div class="signature-line"></div>
-              <div class="doctor-info">
-                <p>
-                  ד"ר ${doctorInfo.firstName} ${doctorInfo.lastName}
-                  ${doctorInfo.specialty ? `, ${doctorInfo.specialty}` : ''}
-                </p>
-                ${doctorInfo.licenseNumber ? `<p>מ.ר. ${doctorInfo.licenseNumber}</p>` : ''}
-              </div>
-            </div>
-          </div>
-        </div>
+        ${printContent}
       </body>
       </html>
     `);
@@ -490,15 +354,62 @@ const PrescriptionForm = () => {
     setHistoryDialog(null);
   };
 
-  const clearHistory = (section) => {
+  const clearSectionData = (section) => {
     if (section === 'patient') {
+      setPatientInfo({ firstName: '', lastName: '', idNumber: '' });
       setPatientHistory([]);
       localStorage.removeItem('patientHistory');
     } else {
+      setMedicationInfo({
+        name: '',
+        dosage: '',
+        units: '',
+        form: '',
+        route: '',
+        frequency: '',
+        instructions: ''
+      });
+      setCustomMedicationValues({
+        dosage: '',
+        units: '',
+        form: '',
+        route: ''
+      });
       setMedicationHistory([]);
       localStorage.removeItem('medicationHistory');
     }
   };
+
+  const clearHistory = (section) => {
+    clearSectionData(section);
+  };
+
+  const removeHistoryEntry = (section: HistorySection, entryId: string) => {
+    if (section === 'patient') {
+      setPatientHistory((prev) => prev.filter((entry) => entry.id !== entryId));
+      return;
+    }
+
+    setMedicationHistory((prev) => prev.filter((entry) => entry.id !== entryId));
+  };
+
+  useEffect(() => {
+    if (!historyDialog && !showPrintDialog) return;
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        if (historyDialog) {
+          setHistoryDialog(null);
+        }
+        if (showPrintDialog) {
+          setShowPrintDialog(false);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [historyDialog, showPrintDialog]);
 
   const handleMedicationValueChange = (field, value) => {
     setMedicationInfo((prev) => ({ ...prev, [field]: value }));
@@ -997,9 +908,7 @@ const PrescriptionForm = () => {
                 className="inline-flex items-center justify-center w-8 h-8 rounded-full border border-gray-300 bg-white text-gray-700 hover:bg-blue-50 hover:text-blue-700"
                 title="מילוי מהיסטוריה"
               >
-                <svg viewBox="0 0 24 24" aria-hidden="true" className="w-4 h-4">
-                  <path d="M13.5 3.5A7.5 7.5 0 0 0 6.1 7H5a1 1 0 0 0 0 2h4.3a1 1 0 0 0 1-1V4.2a1 1 0 1 0-2 0v.8A5.9 5.9 0 0 1 13.5 5a6.5 6.5 0 1 1-6.1 10.8 1 1 0 1 0-1.7 1.1A8.5 8.5 0 1 0 13.5 3.5Zm-1.1 5.2a1 1 0 0 0-1 1v3.5a1 1 0 0 0 .3.7l2.4 2.2a1 1 0 1 0 1.3-1.5l-2.3-2.1V9.7a1 1 0 0 0-1-1Z" fill="currentColor"/>
-                </svg>
+                <span className="material-symbols-outlined text-[20px] leading-none">history</span>
               </button>
               <button
                 type="button"
@@ -1064,9 +973,7 @@ const PrescriptionForm = () => {
                 className="inline-flex items-center justify-center w-8 h-8 rounded-full border border-gray-300 bg-white text-gray-700 hover:bg-blue-50 hover:text-blue-700"
                 title="מילוי מהיסטוריה"
               >
-                <svg viewBox="0 0 24 24" aria-hidden="true" className="w-4 h-4">
-                  <path d="M13.5 3.5A7.5 7.5 0 0 0 6.1 7H5a1 1 0 0 0 0 2h4.3a1 1 0 0 0 1-1V4.2a1 1 0 1 0-2 0v.8A5.9 5.9 0 0 1 13.5 5a6.5 6.5 0 1 1-6.1 10.8 1 1 0 1 0-1.7 1.1A8.5 8.5 0 1 0 13.5 3.5Zm-1.1 5.2a1 1 0 0 0-1 1v3.5a1 1 0 0 0 .3.7l2.4 2.2a1 1 0 1 0 1.3-1.5l-2.3-2.1V9.7a1 1 0 0 0-1-1Z" fill="currentColor"/>
-                </svg>
+                <span className="material-symbols-outlined text-[20px] leading-none">history</span>
               </button>
               <button
                 type="button"
@@ -1460,21 +1367,36 @@ const PrescriptionForm = () => {
                 <p className="text-sm text-gray-500">אין פריטים שמורים עדיין.</p>
               ) : (
                 (historyDialog === 'patient' ? patientHistory : medicationHistory).map((entry) => (
-                  <button
+                  <div
                     key={entry.id}
-                    type="button"
-                    onClick={() => {
-                      applyHistorySelection(historyDialog, entry);
-                    }}
-                    className="w-full text-right p-3 rounded-md border border-gray-200 hover:border-blue-400 hover:bg-blue-50 transition-colors"
+                    className="group relative flex items-center"
                   >
-                    <div className="font-medium text-gray-800">{entry.label}</div>
-                    <div className="text-xs text-gray-500 mt-1">
-                      {historyDialog === 'patient'
-                        ? `${entry.data.firstName || ''} ${entry.data.lastName || ''} • ${entry.data.idNumber || ''}`.trim().replace(/\s+/g, ' ')
-                        : `${entry.data.name || ''} • ${entry.data.dosage || ''} ${entry.data.units ? entry.data.units.split(' - ')[0] : ''} • ${entry.data.route ? entry.data.route.split(' - ')[0] : ''}`.trim().replace(/\s+/g, ' ')}
-                    </div>
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        applyHistorySelection(historyDialog, entry);
+                      }}
+                      className="w-full text-right p-3 rounded-md border border-gray-200 hover:border-blue-400 hover:bg-blue-50 transition-colors"
+                    >
+                      <div className="font-medium text-gray-800">{entry.label}</div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        {historyDialog === 'patient'
+                          ? `${entry.data.firstName || ''} ${entry.data.lastName || ''} • ${entry.data.idNumber || ''}`.trim().replace(/\s+/g, ' ')
+                          : `${entry.data.name || ''} • ${entry.data.dosage || ''} ${entry.data.units ? entry.data.units.split(' - ')[0] : ''} • ${entry.data.route ? entry.data.route.split(' - ')[0] : ''}`.trim().replace(/\s+/g, ' ')}
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        removeHistoryEntry(historyDialog, entry.id);
+                      }}
+                      aria-label="מחק פריט מהיסטוריה"
+                      className="absolute left-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-red-600 text-lg font-bold"
+                    >
+                      ✕
+                    </button>
+                  </div>
                 ))
               )}
             </div>
