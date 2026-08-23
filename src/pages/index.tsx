@@ -997,15 +997,14 @@ const PrescriptionForm = () => {
                 className="inline-flex items-center justify-center w-8 h-8 rounded-full border border-gray-300 bg-white text-gray-700 hover:bg-blue-50 hover:text-blue-700"
                 title="מילוי מהיסטוריה"
               >
-                <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M9 7h9M9 12h9M9 17h9"/>
-                  <path d="M5 7h.01M5 12h.01M5 17h.01"/>
+                <svg viewBox="0 0 24 24" aria-hidden="true" className="w-4 h-4">
+                  <path d="M13.5 3.5A7.5 7.5 0 0 0 6.1 7H5a1 1 0 0 0 0 2h4.3a1 1 0 0 0 1-1V4.2a1 1 0 1 0-2 0v.8A5.9 5.9 0 0 1 13.5 5a6.5 6.5 0 1 1-6.1 10.8 1 1 0 1 0-1.7 1.1A8.5 8.5 0 1 0 13.5 3.5Zm-1.1 5.2a1 1 0 0 0-1 1v3.5a1 1 0 0 0 .3.7l2.4 2.2a1 1 0 1 0 1.3-1.5l-2.3-2.1V9.7a1 1 0 0 0-1-1Z" fill="currentColor"/>
                 </svg>
               </button>
               <button
                 type="button"
                 onClick={() => clearHistory('patient')}
-                className="text-xs text-gray-600 hover:text-red-600"
+                className="text-xs font-bold text-red-600 hover:text-red-700"
               >
                 נקה
               </button>
@@ -1065,15 +1064,14 @@ const PrescriptionForm = () => {
                 className="inline-flex items-center justify-center w-8 h-8 rounded-full border border-gray-300 bg-white text-gray-700 hover:bg-blue-50 hover:text-blue-700"
                 title="מילוי מהיסטוריה"
               >
-                <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M9 7h9M9 12h9M9 17h9"/>
-                  <path d="M5 7h.01M5 12h.01M5 17h.01"/>
+                <svg viewBox="0 0 24 24" aria-hidden="true" className="w-4 h-4">
+                  <path d="M13.5 3.5A7.5 7.5 0 0 0 6.1 7H5a1 1 0 0 0 0 2h4.3a1 1 0 0 0 1-1V4.2a1 1 0 1 0-2 0v.8A5.9 5.9 0 0 1 13.5 5a6.5 6.5 0 1 1-6.1 10.8 1 1 0 1 0-1.7 1.1A8.5 8.5 0 1 0 13.5 3.5Zm-1.1 5.2a1 1 0 0 0-1 1v3.5a1 1 0 0 0 .3.7l2.4 2.2a1 1 0 1 0 1.3-1.5l-2.3-2.1V9.7a1 1 0 0 0-1-1Z" fill="currentColor"/>
                 </svg>
               </button>
               <button
                 type="button"
                 onClick={() => clearHistory('medication')}
-                className="text-xs text-gray-600 hover:text-red-600"
+                className="text-xs font-bold text-red-600 hover:text-red-700"
               >
                 נקה
               </button>
