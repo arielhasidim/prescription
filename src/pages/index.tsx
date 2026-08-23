@@ -283,8 +283,8 @@ const PrescriptionForm = () => {
     // Close dialog first
     closePrintDialog();
     
-    const printElement = document.getElementById('prescription-print');
-    const printContent = printElement?.innerHTML ?? '';
+    // Then open new tab with prescription
+    const printContent = document.getElementById('prescription-print').innerHTML;
     const printWindow = window.open('', '_blank');
     
     // Make sure window was created successfully
@@ -297,29 +297,183 @@ const PrescriptionForm = () => {
       <!DOCTYPE html>
       <html dir="rtl">
       <head>
-        <meta charset="UTF-8">
         <title>מרשם רפואי</title>
+        <meta charset="UTF-8">
         <style>
-          body { font-family: Arial, sans-serif; padding: 20px; direction: rtl; margin: 0; background: #ffffff; }
-          * { box-sizing: border-box; }
-          .prescription-container { border: 2px solid #ccc; border-radius: 8px; padding: 30px; max-width: 800px; margin: 20px auto; background: white; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-          .header { text-align: center; font-weight: bold; font-size: 24px; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid #eaeaea; }
-          .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-          .text-left { text-align: left; }
-          .divider { border-top: 1px solid #ccc; margin: 15px 0; }
-          .bold { font-weight: bold; }
-          .section-title { font-weight: bold; font-size: 16px; margin-bottom: 5px; color: #333; }
-          .patient-info p, .medication-info p { margin: 5px 0; font-size: 14px; }
-          .rx-title { display: flex; align-items: center; margin-bottom: 10px; }
-          .rx-symbol { font-weight: bold; font-size: 22px; margin-left: 10px; }
-          .medication-name { font-size: 18px; font-weight: bold; margin: 10px 0; }
-          .signature-section { margin-top: 40px; }
-          .signature-line { border-bottom: 1px solid #000; height: 40px; margin-top: 10px; margin-bottom: 5px; }
-          .doctor-info { font-size: 14px; }
+          body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            direction: rtl;
+            margin: 0;
+            background-color: #f9f9f9;
+          }
+          .prescription-container {
+            border: 2px solid #ccc;
+            border-radius: 8px;
+            padding: 30px;
+            max-width: 800px;
+            margin: 20px auto;
+            background-color: white;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+          }
+          .header {
+            text-align: center;
+            font-weight: bold;
+            font-size: 24px;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eaeaea;
+          }
+          .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+          }
+          .text-left {
+            text-align: left;
+          }
+          .divider {
+            border-top: 1px solid #ccc;
+            margin: 15px 0;
+          }
+          .bold {
+            font-weight: bold;
+          }
+          .section-title {
+            font-weight: bold;
+            font-size: 16px;
+            margin-bottom: 5px;
+            color: #333;
+          }
+          .patient-info p, .medication-info p {
+            margin: 5px 0;
+            font-size: 14px;
+          }
+          .rx-title {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+          }
+          .rx-symbol {
+            font-weight: bold;
+            font-size: 22px;
+            margin-left: 10px;
+          }
+          .medication-name {
+            font-size: 18px;
+            font-weight: bold;
+            margin: 10px 0;
+          }
+          .signature-section {
+            margin-top: 40px;
+          }
+          .signature-line {
+            border-bottom: 1px solid #000;
+            height: 40px;
+            margin-top: 10px;
+            margin-bottom: 5px;
+          }
+          .doctor-info {
+            font-size: 14px;
+          }
+          .print-instructions {
+            text-align: center;
+            margin: 20px 0;
+            padding: 10px;
+            background-color: #e9f5ff;
+            border-radius: 5px;
+          }
+          @media print {
+            body {
+              print-color-adjust: exact;
+              -webkit-print-color-adjust: exact;
+              background-color: white;
+            }
+            .prescription-container {
+              box-shadow: none;
+              border: 1px solid #ccc;
+            }
+            .print-instructions {
+              display: none;
+            }
+          }
         </style>
       </head>
       <body>
-        ${printContent}
+        <div class="print-instructions">
+          להדפסת המרשם, לחץ על Ctrl+P (או ⌘+P במחשבי Mac)
+        </div>
+        <div class="prescription-container">
+          <div class="header">מרשם רפואי</div>
+          
+          <div class="grid">
+            <div>
+              ${doctorInfo.clinic ? `
+                <div class="section-title">פרטי המרפאה:</div>
+                <p>${doctorInfo.clinic}</p>
+              ` : ''}
+              ${doctorInfo.phone ? `<p>טלפון: ${doctorInfo.phone}</p>` : ''}
+            </div>
+            <div class="text-left">
+              <p>תאריך: ${currentDate}</p>
+            </div>
+          </div>
+          
+          <div class="divider"></div>
+          
+          <div class="patient-info">
+            <div class="section-title">פרטי המטופל:</div>
+            <p>שם: ${patientInfo.firstName} ${patientInfo.lastName}</p>
+            <p>ת.ז.: ${patientInfo.idNumber}</p>
+          </div>
+          
+          <div class="divider"></div>
+          
+          <div class="medication-info">
+            <div class="rx-title">
+              <span class="rx-symbol">Rx</span>
+              <span class="bold">- תרופה:</span>
+            </div>
+            
+            <p class="medication-name">${medicationInfo.name}</p>
+            <p>
+              ${medicationInfo.dosage} ${medicationInfo.units ? medicationInfo.units.split(' - ')[0] : ''}
+              ${medicationInfo.form ? `(${medicationInfo.form.split(' - ')[0]})` : ''}
+            </p>
+            <p>
+              דרך מתן: ${medicationInfo.route ? medicationInfo.route.split(' - ')[0] : ''}
+            </p>
+            <p>
+              תדירות: ${medicationInfo.frequency ? medicationInfo.frequency.split(' - ')[0] : ''}
+            </p>
+            ${medicationInfo.instructions ? `<p>הוראות נוספות: ${medicationInfo.instructions}</p>` : ''}
+          </div>
+          
+          <div class="divider"></div>
+          
+          <div>
+            <div class="section-title">ניפוק:</div>
+            ${supplyTab === 'quantity' ? 
+              `<p>כמות: ${supplyInfo.quantity} ${supplyInfo.quantityUnits.split(' - ')[0]}</p>` : 
+              `<p>משך טיפול: ${supplyInfo.duration} ${supplyInfo.durationUnits.split(' - ')[0]}</p>`}
+          </div>
+          
+          <div class="divider"></div>
+          
+          <div class="signature-section grid">
+            <div>
+              <div class="section-title">חתימת הרופא:</div>
+              <div class="signature-line"></div>
+              <div class="doctor-info">
+                <p>
+                  ד"ר ${doctorInfo.firstName} ${doctorInfo.lastName}
+                  ${doctorInfo.specialty ? `, ${doctorInfo.specialty}` : ''}
+                </p>
+                ${doctorInfo.licenseNumber ? `<p>מ.ר. ${doctorInfo.licenseNumber}</p>` : ''}
+              </div>
+            </div>
+          </div>
+        </div>
       </body>
       </html>
     `);
